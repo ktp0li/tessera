@@ -19,6 +19,10 @@ class Set(StatesGroup):
 class Get(StatesGroup):
     service = State()
 
+# Cтейт для команды /get
+class Del(StatesGroup):
+    service = State()
+
 @dp.message_handler(commands=['start', 'help'])
 async def cmd_start(message: types.Message):
     await message.answer('Привет!👋 Этот бот поможет тебе не потерять доступ к важным ресурсам🔒' +
@@ -58,6 +62,7 @@ async def cmd_get(message: types.Message):
     await Get.service.set()
     await message.answer('Пароль от какого сервиса показать?🥰')
 
+# Ввод сервиса для /get
 @dp.message_handler(state=Get.service)
 async def get_service(message: types.Message, state: FSMContext):
     service = message.text
@@ -66,6 +71,20 @@ async def get_service(message: types.Message, state: FSMContext):
     # Удаление сообщения
     await asyncio.sleep(5)
     await answer.delete()
+
+
+@dp.message_handler(commands=['del'])
+async def cmd_del(message: types.Message):
+    await Del.service.set()
+    await message.answer('Какой сервис удаляем?😭')
+
+# Ввод сервиса для /del
+@dp.message_handler(state=Del.service)
+async def del_service(message: types.Message, state: FSMContext):
+    service = message.text
+    await state.finish()
+    await message.answer(f'Сервис {service} удалён🫥')
+
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
