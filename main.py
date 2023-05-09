@@ -1,10 +1,20 @@
 import asyncio
 import os
 import logging
+from sqlalchemy import MetaData, Table, Column, Integer, ForeignKey, String
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.dispatcher import FSMContext
+
+metadata = MetaData()
+# Модели двух таблиц БД
+users = Table('users', metadata, Column('user-id', Integer(), primary_key=True))
+passwords = Table('passwords', metadata,
+                  Column('id', Integer(), primary_key=True),
+                  Column('service', String(100)),
+                  Column('password', String(100)),
+                  Column('user-id', ForeignKey('users.user-id')))
 
 bot = Bot(token=os.getenv('TOKEN'))
 dp = Dispatcher(bot, storage=MemoryStorage())
@@ -33,7 +43,7 @@ async def cmd_start(message: types.Message):
 @dp.message_handler(commands=['set'])
 async def cmd_set(message: types.Message):
     await Set.service.set()
-    await message.answer('Какой сервис хочешь добавить?😳')
+    await message.answer('Какой сервис хочешь добавить?😳' + f'\nid: {message.from_user.id}')
 
 # Ввод сервиса для /set
 @dp.message_handler(state=Set.service)
