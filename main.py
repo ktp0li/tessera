@@ -61,6 +61,7 @@ async def cmd_set(message: types.Message):
 async def set_service(message: types.Message, state: FSMContext):
     service = message.text
     user_id = message.from_user.id
+
     # Проверка существования записи о сервисе в бд
     if not session.query(Passwords).filter_by(user_id=user_id, service=service).first():
         await Set.password.set()
@@ -109,11 +110,18 @@ async def cmd_get(message: types.Message):
 @dp.message_handler(state=Get.service)
 async def get_service(message: types.Message, state: FSMContext):
     service = message.text
+    user_id = message.from_user.id
+
+    # Получить запись о пароле
+    password = session.query(Passwords).filter_by(service=service, user_id=user_id).first()
+    if password:
+        answer = await message.answer(f'Пароль от сервиса {service}: {password.password}')
+        # Удаление сообщения
+        await asyncio.sleep(5)
+        await answer.delete()
+    else:
+        await message.answer('Сервис не был найден, сперва добавь его через /set 😊')
     await state.finish()
-    answer = await message.answer(f'Пароль от сервиса {service} эээ... будет')
-    # Удаление сообщения
-    await asyncio.sleep(5)
-    await answer.delete()
 
 
 @dp.message_handler(commands=['del'])
