@@ -8,7 +8,9 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.dispatcher import FSMContext
 
-engine = create_engine('postgresql://postgres:example@localhost:8080/postgres')
+dbuser, dbpass, dbhost = os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST")
+dbport, dbname = os.getenv("DB_PORT"), os.getenv("DB_NAME")
+engine = create_engine(f'postgresql://{dbname}:{dbpass}@{dbhost}:{dbport}/{dbname}')
 Base = declarative_base()
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
@@ -22,8 +24,8 @@ class Users(Base):
 class Passwords(Base):
     __tablename__ = 'passwords'
     id = Column(Integer, primary_key=True)
-    service = Column(String(100))
-    password = Column(String(100))
+    service = Column(String(256))
+    password = Column(String(256))
     user_id = Column(ForeignKey('users.user_id'))
 
 bot = Bot(token=os.getenv('TOKEN'))
