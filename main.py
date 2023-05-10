@@ -113,9 +113,9 @@ async def get_service(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
 
     # Получить запись о пароле
-    password = session.query(Passwords).filter_by(service=service, user_id=user_id).first()
-    if password:
-        answer = await message.answer(f'Пароль от сервиса {service}: {password.password}')
+    entry = session.query(Passwords).filter_by(service=service, user_id=user_id).first()
+    if entry:
+        answer = await message.answer(f'Пароль от сервиса {service}: {entry.password}')
         # Удаление сообщения
         await asyncio.sleep(5)
         await answer.delete()
@@ -133,8 +133,17 @@ async def cmd_del(message: types.Message):
 @dp.message_handler(state=Del.service)
 async def del_service(message: types.Message, state: FSMContext):
     service = message.text
+    user_id = message.from_user.id
+
+    # Получить запись о пароле
+    entry = session.query(Passwords).filter_by(service=service, user_id=user_id).first()
+    if entry:
+        session.delete(entry)
+        session.commit()
+        await message.answer('Сервис удалён🫥')
+    else:
+        await message.answer('Сервис не был найден, сперва добавь его через /set 😊')
     await state.finish()
-    await message.answer(f'Сервис {service} удалён🫥')
 
 
 if __name__ == '__main__':
