@@ -1,20 +1,29 @@
 import asyncio
 import os
 import logging
-from sqlalchemy import MetaData, Table, Column, Integer, ForeignKey, String
+from sqlalchemy import Column, Integer, ForeignKey, String, create_engine
+from sqlalchemy.orm import declarative_base
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.dispatcher import FSMContext
 
-metadata = MetaData()
+engine = create_engine('postgresql://postgres:example@localhost:8080/postgres')
+Base = declarative_base()
+
 # Модели двух таблиц БД
-users = Table('users', metadata, Column('user-id', Integer(), primary_key=True))
-passwords = Table('passwords', metadata,
-                  Column('id', Integer(), primary_key=True),
-                  Column('service', String(100)),
-                  Column('password', String(100)),
-                  Column('user-id', ForeignKey('users.user-id')))
+class Users(Base):
+    __tablename__ = 'users'
+    user_id = Column(Integer, primary_key=True)
+
+class Passwords(Base):
+    __tablename__ = 'passwords'
+    id = Column(Integer, primary_key=True)
+    service = Column(String(100))
+    password = Column(String(100))
+    user_id = Column(ForeignKey('users.user_id'))
+
+Base.metadata.create_all(engine)
 
 bot = Bot(token=os.getenv('TOKEN'))
 dp = Dispatcher(bot, storage=MemoryStorage())
@@ -32,6 +41,7 @@ class Get(StatesGroup):
 # Cтейт для команды /get
 class Del(StatesGroup):
     service = State()
+
 
 @dp.message_handler(commands=['start', 'help'])
 async def cmd_start(message: types.Message):
