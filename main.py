@@ -48,7 +48,8 @@ class Del(StatesGroup):
 async def cmd_start(message: types.Message):
     await message.answer('Привет!👋 Этот бот поможет тебе не потерять доступ к важным ресурсам🔒' +
                         '\nСинтаксис команд:\n/set – добавить пароль' +
-                        '\n/get – получить пароль к сервису\n/del – удалить сервис')
+                        '\n/get – получить пароль к сервису\n/del – удалить сервис' +
+                        '\n/list – список добавленных сервисов')
 
 
 @dp.message_handler(commands=['set'])
@@ -145,6 +146,12 @@ async def del_service(message: types.Message, state: FSMContext):
         await message.answer('Сервис не был найден, сперва добавь его через /set 😊')
     await state.finish()
 
+
+@dp.message_handler(commands=['list'])
+async def cmd_list(message: types.Message):
+    user_id = message.from_user.id
+    services = ['👁️ ' + i.service for i in session.query(Passwords).filter_by(user_id=user_id).all()]
+    await message.answer('Добавленные сервисы:\n' + '\n'.join(services))
 
 if __name__ == '__main__':
     Base.metadata.create_all(engine)
