@@ -44,7 +44,7 @@ class Get(StatesGroup):
     service = State()
     login = State()
 
-# Cтейт для команды /get
+# Cтейты для команды /get
 class Del(StatesGroup):
     service = State()
     login = State()
@@ -52,7 +52,7 @@ class Del(StatesGroup):
 
 @dp.message_handler(commands=['start', 'help'])
 async def cmd_start(message: types.Message):
-    await message.answer('Привет!👋 Этот бот поможет тебе не потерять доступ к важным ресурсам🔒' +
+    await message.answer('Привет! 👋 Этот бот поможет тебе не потерять доступ к важным ресурсам 🔒' +
                         '\nСинтаксис команд:\n/set – добавить пароль' +
                         '\n/get – получить пароль к сервису\n/del – удалить сервис' +
                         '\n/list – список добавленных сервисов')
@@ -61,7 +61,7 @@ async def cmd_start(message: types.Message):
 @dp.message_handler(commands=['set'])
 async def cmd_set(message: types.Message):
     await Set.service.set()
-    await message.answer('Какой сервис хочешь добавить?😳')
+    await message.answer('Какой сервис хочешь добавить? 😳')
 
 # Ввод сервиса для /set
 @dp.message_handler(state=Set.service)
@@ -71,7 +71,7 @@ async def set_service(message: types.Message, state: FSMContext):
         data['service'] = service
 
     await Set.login.set()
-    await message.answer('Какой логин для сервиса добавишь?🤔')
+    await message.answer('Какой логин для сервиса добавишь? 🤔')
 
 # Ввод логина для /set
 @dp.message_handler(state=Set.login)
@@ -85,10 +85,10 @@ async def set_login(message: types.Message, state: FSMContext):
     # Проверка существования записи о логине в бд
     if not session.query(Passwords).filter_by(user_id=user_id, service=service, login=log).first():
         await Set.password.set()
-        await message.answer('Вводи пароль. Не переживай, я не подглядываю😉')
+        await message.answer('Вводи пароль. Не переживай, я не подглядываю 😉')
     else:
         state.finish()
-        await message.answer('Ты уже добавлял этот логин к сервису🥺' +
+        await message.answer('Ты уже добавлял этот логин к сервису 🥺' +
                              '\nВведи /set снова')
 
 # Ввод пароля для /set
@@ -113,7 +113,7 @@ async def set_password(message: types.Message, state: FSMContext):
 
     await message.answer('Сервис успешно добавлен!\n' +
                         'Сообщение с паролем сейчас удалится. ' +
-                        'Не переживай, это ради твоей же конфиденциальности😎')
+                        'Не переживай, это ради твоей же конфиденциальности 😎')
     await state.finish()
     # Удаление сообщения
     await asyncio.sleep(2)
@@ -123,7 +123,7 @@ async def set_password(message: types.Message, state: FSMContext):
 @dp.message_handler(commands=['get'])
 async def cmd_get(message: types.Message):
     await Get.service.set()
-    await message.answer('Пароль от какого сервиса показать?🥰')
+    await message.answer('Пароль от какого сервиса показать? 🥰')
 
 # Ввод сервиса для /get
 @dp.message_handler(state=Get.service)
@@ -136,7 +136,7 @@ async def get_service(message: types.Message, state: FSMContext):
     # Получить запись о пароле
     entry = session.query(Passwords).filter_by(service=service, user_id=user_id).first()
     if entry:
-        await message.answer('Какой логин использовал при регистрации?😳')
+        await message.answer('Какой логин использовал при регистрации? 😳')
         await Get.login.set()
     else:
         await message.answer('Сервис не был найден, сперва добавь его через /set 😊')
@@ -167,7 +167,7 @@ async def get_login(message: types.Message, state: FSMContext):
 @dp.message_handler(commands=['del'])
 async def cmd_del(message: types.Message):
     await Del.service.set()
-    await message.answer('Пароль от какого сервиса удаляем?😭')
+    await message.answer('Пароль от какого сервиса удаляем? 😭')
 
 # Ввод сервиса для /del
 @dp.message_handler(state=Del.service)
@@ -181,7 +181,7 @@ async def del_service(message: types.Message, state: FSMContext):
     entry = session.query(Passwords).filter_by(service=service, user_id=user_id).first()
     if entry:
         await Del.login.set()
-        await message.answer('А логин какой?🤔')
+        await message.answer('А логин какой? 🤔')
     else:
         await state.finish()
         await message.answer('Сервис не был найден, сперва добавь его через /set 😊')
@@ -204,14 +204,21 @@ async def del_login(message: types.Message, state: FSMContext):
     await state.finish()
 
 
-
-
 @dp.message_handler(commands=['list'])
 async def cmd_list(message: types.Message):
     user_id = message.from_user.id
-    services = ['👁️ ' + i.service for i in session.query(Passwords).filter_by(user_id=user_id).all()]
-    await message.answer('Добавленные сервисы:\n' + '\n'.join(services))
+    services = [i.service for i in session.query(Passwords).filter_by(user_id=user_id).all()]
+    entries = {}
+    for i in services:
+        query = session.query(Passwords).filter_by(user_id=user_id, service=i).all()
+        entries[i] = [i.login for i in query]
+    entr = [f'🫃 {j}:' + '\n    👁️ ' + '\n    👁️ '.join(k) for j, k in entries.items()]
+    if entr:
+        await message.answer('Добавленные сервисы:\n' + '\n'.join(entr))
+    else:
+        await message.answer('Ты пока не добавил ни одного пароля 😭')
 
-if __name__ == '__main__':
+
+if  __name__ == '__main__':
     Base.metadata.create_all(engine)
     executor.start_polling(dp)
