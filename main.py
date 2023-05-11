@@ -130,18 +130,39 @@ async def cmd_get(message: types.Message):
 @dp.message_handler(state=Get.service)
 async def get_service(message: types.Message, state: FSMContext):
     service = message.text
+    async with state.proxy() as data:
+        data['service'] = service
     user_id = message.from_user.id
 
     # Получить запись о пароле
     entry = session.query(Passwords).filter_by(service=service, user_id=user_id).first()
     if entry:
-        answer = await message.answer(f'Пароль от сервиса {service}: {entry.password}')
+        await message.answer('Какой логин использовал при регистрации?😳')
+        await Get.login.set()
+    else:
+        await message.answer('Сервис не был найден, сперва добавь его через /set 😊')
+        await state.finish()
+
+# Ввод логина для /get
+@dp.message_handler(state=Get.login)
+async def get_login(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    log = message.text
+    async with state.proxy() as data:
+        service = data['service']
+
+    # Получить запись о пароле
+    entry = session.query(Passwords).filter_by(service=service, login=log, user_id=user_id).first()
+    if entry:
+        answer = await message.answer(f'Пароль от сервиса: {entry.password}')
+        await state.finish()
         # Удаление сообщения
         await asyncio.sleep(5)
         await answer.delete()
     else:
-        await message.answer('Сервис не был найден, сперва добавь его через /set 😊')
-    await state.finish()
+        await message.answer('Логин для сервиса не был найден, сперва добавь его через /set 😊')
+        await state.finish()
+
 
 
 @dp.message_handler(commands=['del'])
