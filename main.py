@@ -25,6 +25,7 @@ class Passwords(Base):
     __tablename__ = 'passwords'
     id = Column(Integer, primary_key=True)
     service = Column(String(256))
+    login = Column(String(256))
     password = Column(String(256))
     user_id = Column(ForeignKey('users.user_id'))
 
@@ -35,15 +36,18 @@ logging.basicConfig(level=logging.INFO)
 # Стейты для команды /set
 class Set(StatesGroup):
     service = State()
+    login = State()
     password = State()
 
-# Cтейт для команды /get
+# Cтейты для команды /get
 class Get(StatesGroup):
     service = State()
+    login = State()
 
 # Cтейт для команды /get
 class Del(StatesGroup):
     service = State()
+    login = State()
 
 
 @dp.message_handler(commands=['start', 'help'])
@@ -65,23 +69,36 @@ async def set_service(message: types.Message, state: FSMContext):
     service = message.text
     user_id = message.from_user.id
 
-    # Проверка существования записи о сервисе в бд
-    if not session.query(Passwords).filter_by(user_id=user_id, service=service).first():
+    await Set.login.set()
+    async with state.proxy() as data:
+        data['service'] = service
+    await message.answer('Какой логин для сервиса добавишь?🤔')
+
+# Ввод логина для /set
+@dp.message_handler(state=Set.login)
+async def set_login(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    log = message.text
+    async with state.proxy() as data:
+        data['login'] = log
+        service = data['service']
+
+    # Проверка существования записи о логине в бд
+    if not session.query(Passwords).filter_by(user_id=user_id, service=service, login=log).first():
         await Set.password.set()
-        async with state.proxy() as data:
-            data['service'] = service
         await message.answer('Вводи пароль. Не переживай, я не подглядываю😉')
     else:
-        await state.finish()
-        await message.answer('Ты уже добавлял этот сервис🥺' +
-                            '\nВведи /set снова')
-
+        state.finish()
+        await message.answer('Ты уже добавлял этот логин к сервису🥺' +
+                             '\nВведи /set снова')
 
 # Ввод пароля для /set
 @dp.message_handler(state=Set.password)
 async def set_password(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         service = data['service']
+        log = data['login']
+    passw = message.text
 
     # Добавление юзера в бд
     user_id = message.from_user.id
@@ -91,7 +108,7 @@ async def set_password(message: types.Message, state: FSMContext):
         session.commit()
 
     # Добавление записи о сервисе
-    password = Passwords(service=service, password=message.text, user_id=user_id)
+    password = Passwords(service=service, login=log, password=passw, user_id=user_id)
     session.add(password)
     session.commit()
 
