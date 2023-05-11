@@ -168,23 +168,43 @@ async def get_login(message: types.Message, state: FSMContext):
 @dp.message_handler(commands=['del'])
 async def cmd_del(message: types.Message):
     await Del.service.set()
-    await message.answer('Какой сервис удаляем?😭')
+    await message.answer('Пароль от какого сервиса удаляем?😭')
 
 # Ввод сервиса для /del
 @dp.message_handler(state=Del.service)
 async def del_service(message: types.Message, state: FSMContext):
     service = message.text
     user_id = message.from_user.id
+    async with state.proxy() as data:
+        data['service'] = service
 
     # Получить запись о пароле
     entry = session.query(Passwords).filter_by(service=service, user_id=user_id).first()
     if entry:
-        session.delete(entry)
-        session.commit()
-        await message.answer('Сервис удалён🫥')
+        await Del.login.set()
+        await message.answer('А логин какой?🤔')
     else:
+        await state.finish()
         await message.answer('Сервис не был найден, сперва добавь его через /set 😊')
-    await state.finish()
+
+# Ввод логина 
+@dp.message_handler(state=Del.login)
+async def del_login(message: types.Message, state: FSMContext):
+        async with state.proxy() as data:
+            service = data['service']
+        user_id = message.from_user.id
+        log = message.text
+
+        entry = session.query(Passwords).filter_by(service=service, login=log,user_id=user_id).first()
+        if entry:
+            session.delete(entry)
+            session.commit()
+            await message.answer('Пароль удалён🫥')
+        else:
+            await message.answer('Логин для сервиса не был найден, сперва добавь его через /set 😊')
+        await state.finish()
+
+
 
 
 @dp.message_handler(commands=['list'])
