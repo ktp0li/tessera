@@ -24,9 +24,9 @@ class Users(Base):
 class Passwords(Base):
     __tablename__ = 'passwords'
     id = Column(Integer, primary_key=True)
-    service = Column(String(256))
-    login = Column(String(256))
-    password = Column(String(256))
+    service = Column(String(63))
+    login = Column(String(63))
+    password = Column(String(63))
     user_id = Column(ForeignKey('users.user_id'))
 
 bot = Bot(token=os.getenv('TOKEN'))
@@ -67,57 +67,74 @@ async def cmd_set(message: types.Message):
 @dp.message_handler(state=Set.service)
 async def set_service(message: types.Message, state: FSMContext):
     service = message.text
-    async with state.proxy() as data:
-        data['service'] = service
+    if len(service) <= 63:
+        async with state.proxy() as data:
+            data['service'] = service
 
-    await Set.login.set()
-    await message.answer('Какой логин для сервиса добавишь? 🤔')
+        await Set.login.set()
+        await message.answer('Какой логин для сервиса добавишь? 🤔')
+    else:
+        await state.finish()
+        await message.answer('Название сервиса слишком длинное 🥺' + 
+                            '\nВведи /set снова')
 
 # Ввод логина для /set
 @dp.message_handler(state=Set.login)
 async def set_login(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     log = message.text
-    async with state.proxy() as data:
-        data['login'] = log
-        service = data['service']
+    
+    if len(log) <= 63:
+        async with state.proxy() as data:
+            data['login'] = log
+            service = data['service']
 
-    # Проверка существования записи о логине в бд
-    if not session.query(Passwords).filter_by(user_id=user_id, service=service, login=log).first():
-        await Set.password.set()
-        await message.answer('Вводи пароль. Не переживай, я не подглядываю 😉')
+        # Проверка существования записи о логине в бд
+        if not session.query(Passwords).filter_by(user_id=user_id, service=service, login=log).first():
+            await Set.password.set()
+            await message.answer('Вводи пароль. Не переживай, я не подглядываю 😉')
+        else:
+            state.finish()
+            await message.answer('Ты уже добавлял этот логин к сервису 🥺' +
+                                 '\nВведи /set снова')
     else:
-        state.finish()
-        await message.answer('Ты уже добавлял этот логин к сервису 🥺' +
+        await state.finish()
+        await message.answer('Логин слишком длинный 🥺' + 
                              '\nВведи /set снова')
 
 # Ввод пароля для /set
 @dp.message_handler(state=Set.password)
 async def set_password(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        service = data['service']
-        log = data['login']
     passw = message.text
 
-    # Добавление юзера в бд
-    user_id = message.from_user.id
-    if not session.query(Users).filter_by(user_id=user_id).first():
-        user = Users(user_id=user_id)
-        session.add(user)
+    if len(passw) <= 63:
+        async with state.proxy() as data:
+            service = data['service']
+            log = data['login']
+
+        # Добавление юзера в бд
+        user_id = message.from_user.id
+        if not session.query(Users).filter_by(user_id=user_id).first():
+            user = Users(user_id=user_id)
+            session.add(user)
+            session.commit()
+
+        # Добавление записи о сервисе
+        password = Passwords(service=service, login=log, password=passw, user_id=user_id)
+        session.add(password)
         session.commit()
 
-    # Добавление записи о сервисе
-    password = Passwords(service=service, login=log, password=passw, user_id=user_id)
-    session.add(password)
-    session.commit()
-
-    await message.answer('Сервис успешно добавлен!\n' +
-                        'Сообщение с паролем сейчас удалится. ' +
-                        'Не переживай, это ради твоей же конфиденциальности 😎')
-    await state.finish()
-    # Удаление сообщения
-    await asyncio.sleep(2)
-    await message.delete()
+        await message.answer('Сервис успешно добавлен!\n' +
+                            'Сообщение с паролем сейчас удалится. ' +
+                            'Не переживай, это ради твоей же конфиденциальности 😎')
+        await state.finish()
+        # Удаление сообщения
+        await asyncio.sleep(2)
+        await message.delete()
+    else:
+        await state.finish()
+        await message.answer('Пароль слишком длинный 🥺' + 
+                             '\nВведи /set снова')
 
 
 @dp.message_handler(commands=['get'])
@@ -153,7 +170,7 @@ async def get_login(message: types.Message, state: FSMContext):
     # Получить запись о пароле
     entry = session.query(Passwords).filter_by(service=service, login=log, user_id=user_id).first()
     if entry:
-        answer = await message.answer(f'Пароль от сервиса: {entry.password}')
+        answer = await message.answer(f'Пароль от сервиса: `{entry.password}`', parse_mode="MarkdownV2")
         await state.finish()
         # Удаление сообщения
         await asyncio.sleep(5)
