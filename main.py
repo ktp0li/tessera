@@ -1,12 +1,13 @@
 import asyncio
 import os
 import logging
-from sqlalchemy import Column, Integer, ForeignKey, String, create_engine
+from sqlalchemy import Column, Integer, ForeignKey, String, create_engine, LargeBinary
 from sqlalchemy.orm import declarative_base, sessionmaker
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram.dispatcher import FSMContext
+from Crypto.Cipher import AES
 
 dbuser, dbpass, dbhost = os.getenv("DB_USER"), os.getenv("DB_PASS"), os.getenv("DB_HOST")
 dbport, dbname = os.getenv("DB_PORT"), os.getenv("DB_NAME")
@@ -26,7 +27,10 @@ class Passwords(Base):
     id = Column(Integer, primary_key=True)
     service = Column(String(63))
     login = Column(String(63))
-    password = Column(String(63))
+    #password = Column(String(63))
+    ciphertext = Column(LargeBinary(63))
+    tag = Column(LargeBinary(16))
+    nonce = Column(LargeBinary(16))
     user_id = Column(ForeignKey('users.user_id'))
 
 bot = Bot(token=os.getenv('TOKEN'))
@@ -48,6 +52,23 @@ class Get(StatesGroup):
 class Del(StatesGroup):
     service = State()
     login = State()
+
+
+# Добавление шифра
+key = os.getenv('KEY').encode()
+
+# Шифрование паролей
+async def encode(data):
+    data = data.encode()
+    cipher = AES.new(key, AES.MODE_EAX)
+    ciphertext, tag = cipher.encrypt_and_digest(data)
+    nonce = cipher.nonce
+    return {'ciphertext': ciphertext, 'tag': tag, 'nonce': nonce}
+
+# Дешифрование паролей
+async def decode(ciphertext, tag, nonce):
+    cipher = AES.new(key, AES.MODE_EAX, nonce)
+    return cipher.decrypt_and_verify(ciphertext, tag)
 
 
 @dp.message_handler(commands=['start', 'help'])
@@ -75,7 +96,7 @@ async def set_service(message: types.Message, state: FSMContext):
         await message.answer('Какой логин для сервиса добавишь? 🤔')
     else:
         await state.finish()
-        await message.answer('Название сервиса слишком длинное 🥺' + 
+        await message.answer('Название сервиса слишком длинное 🥺' +
                             '\nВведи /set снова')
 
 # Ввод логина для /set
@@ -99,7 +120,7 @@ async def set_login(message: types.Message, state: FSMContext):
                                  '\nВведи /set снова')
     else:
         await state.finish()
-        await message.answer('Логин слишком длинный 🥺' + 
+        await message.answer('Логин слишком длинный 🥺' +
                              '\nВведи /set снова')
 
 # Ввод пароля для /set
@@ -120,7 +141,9 @@ async def set_password(message: types.Message, state: FSMContext):
             session.commit()
 
         # Добавление записи о сервисе
-        password = Passwords(service=service, login=log, password=passw, user_id=user_id)
+        encoded = await encode(passw)
+        password = Passwords(service=service, login=log, ciphertext=encoded['ciphertext'],
+                             tag=encoded['tag'], nonce=encoded['nonce'], user_id=user_id)
         session.add(password)
         session.commit()
 
@@ -133,8 +156,9 @@ async def set_password(message: types.Message, state: FSMContext):
         await message.delete()
     else:
         await state.finish()
-        await message.answer('Пароль слишком длинный 🥺' + 
+        await message.answer('Пароль слишком длинный 🥺' +
                              '\nВведи /set снова')
+
 
 
 @dp.message_handler(commands=['get'])
@@ -170,7 +194,8 @@ async def get_login(message: types.Message, state: FSMContext):
     # Получить запись о пароле
     entry = session.query(Passwords).filter_by(service=service, login=log, user_id=user_id).first()
     if entry:
-        answer = await message.answer(f'Пароль от сервиса: `{entry.password}`', parse_mode="MarkdownV2")
+        password = await decode(entry.ciphertext, entry.tag, entry.nonce)
+        answer = await message.answer(f'Пароль от сервиса: `{password.decode("utf-8")}`', parse_mode="MarkdownV2")
         await state.finish()
         # Удаление сообщения
         await asyncio.sleep(5)
