@@ -2,3 +2,4 @@ aiogram
 setuptools
 sqlalchemy
 psycopg2-binary
+pycryptodome

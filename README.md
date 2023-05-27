@@ -1,3 +1,6 @@
+# Tessera
+
+
 ### Usage:
 1. Paste token into TOKEN env var in docker-compose.yml
 2. `docker-compose build`
@@ -6,7 +9,8 @@
 ### TODO:
 - [X] Base logic
 - [X] Database integration
-- [ ] AES encryption
+- [X] Markdown 
+- [X] AES encryption
 - [X] Dockerfile
 - [ ] Logging
 - [ ] Buttons for /get and /del as /list replacement

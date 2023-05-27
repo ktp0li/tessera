@@ -104,7 +104,7 @@ async def set_service(message: types.Message, state: FSMContext):
 async def set_login(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     log = message.text
-    
+
     if len(log) <= 63:
         async with state.proxy() as data:
             data['login'] = log
