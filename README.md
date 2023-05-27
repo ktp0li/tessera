@@ -1,5 +1,4 @@
-# Tessera
-
+# Tessera [![tessera_keepass_bot.t.me](https://img.shields.io/badge/Telegram-Bot-blue)](https://tessera_keepass_bot.t.me)
 
 ### Usage:
 1. Paste token into TOKEN env var in docker-compose.yml
